@@ -70,6 +70,29 @@ bool CuckooFilter::contains(const std::string& item) const {
     return false;
 }
 
+bool CuckooFilter::remove(const std::string& item) {
+    uint16_t fingerprint = getFingerprint(item);
+    size_t firstBucket = getBucketIndex(item);
+    size_t secondBucket = getAltBucketIndex(firstBucket, fingerprint);
+
+    for (auto i = table[firstBucket].bucket.begin(); i != table[firstBucket].bucket.end(); i++) {
+        if (i[0] == fingerprint) {
+            table[firstBucket].bucket.erase(i);
+            size--;
+            return true;
+        }
+    }
+    for (auto i = table[secondBucket].bucket.begin(); i != table[secondBucket].bucket.end(); i++) {
+        if (i[0] == fingerprint) {
+            table[secondBucket].bucket.erase(i);
+            size--;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void CuckooFilter::clearFilter() {
     table.clear();
     table.shrink_to_fit();

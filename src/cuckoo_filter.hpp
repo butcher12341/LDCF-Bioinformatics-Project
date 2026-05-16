@@ -16,6 +16,9 @@ typedef struct{
 	std::vector<uint16_t> bucket;
 } Bucket;
 
+/*
+ * Author: Andrija Macek
+ */
 class CuckooFilter {
 private:
     size_t capacity;
