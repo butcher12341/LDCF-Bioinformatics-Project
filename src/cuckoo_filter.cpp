@@ -55,12 +55,27 @@ bool CuckooFilter::insert(const std::string& item) {
     return true;
 }
 
+bool CuckooFilter::contains(const std::string& item) const {
+    uint16_t fingerprint = getFingerprint(item);
+    size_t firstBucket = getBucketIndex(item);
+    size_t secondBucket = getAltBucketIndex(firstBucket, fingerprint);
+
+    for (auto i = table[firstBucket].bucket.begin(); i != table[firstBucket].bucket.end(); i++)
+        if (i[0] == fingerprint)
+            return true;
+    for (auto i = table[secondBucket].bucket.begin(); i != table[secondBucket].bucket.end(); i++)
+        if (i[0] == fingerprint)
+            return true;
+
+    return false;
+}
+
 void CuckooFilter::clearFilter() {
     table.clear();
     table.shrink_to_fit();
 }
 
-uint16_t CuckooFilter::getFingerprint(const std::string& item) {
+uint16_t CuckooFilter::getFingerprint(const std::string& item) const {
     unsigned char md5[MD5_DIGEST_LENGTH];
     MD5(reinterpret_cast<const unsigned char*>(item.c_str()), item.size(), md5);
 
@@ -71,7 +86,7 @@ uint16_t CuckooFilter::getFingerprint(const std::string& item) {
     return result;
 }
 
-size_t CuckooFilter::getBucketIndex(const std::string& item) {
+size_t CuckooFilter::getBucketIndex(const std::string& item) const {
     unsigned char md5[MD5_DIGEST_LENGTH];
     MD5(reinterpret_cast<const unsigned char*>(item.c_str()), item.size(), md5);
 
@@ -85,7 +100,7 @@ size_t CuckooFilter::getBucketIndex(const std::string& item) {
     return result;
 }
 
-size_t CuckooFilter::getAltBucketIndex(const size_t& firstBucketIndex, const uint16_t& fingerprint) {
+size_t CuckooFilter::getAltBucketIndex(const size_t& firstBucketIndex, const uint16_t& fingerprint) const {
     unsigned char md5[MD5_DIGEST_LENGTH];
     MD5(reinterpret_cast<const unsigned char*>(&fingerprint), sizeof(fingerprint), md5);
 

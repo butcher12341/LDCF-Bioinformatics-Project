@@ -24,11 +24,11 @@ private:
     std::vector<Bucket> table;
     
     // Get the fingerprint of the item using MD5 hash
-    uint16_t getFingerprint(const std::string& item);
+    uint16_t getFingerprint(const std::string& item) const;
     // Get the first bucket index of the item using MD5 hash
-    size_t getBucketIndex(const std::string& item);
+    size_t getBucketIndex(const std::string& item) const;
     // Get the second bucket index of the item using the first bucket index and the fingerprint
-    size_t getAltBucketIndex(const size_t& firstBucketIndex, const uint16_t& fingerprint);
+    size_t getAltBucketIndex(const size_t& firstBucketIndex, const uint16_t& fingerprint) const;
     // Move fingerprint from bucket index to alternative bucket, returns false if not possible
     bool changeBucket(const size_t& bucketIndex, const uint16_t& fingerprint, size_t depth);
 public:
