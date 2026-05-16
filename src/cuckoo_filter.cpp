@@ -25,6 +25,9 @@ CuckooFilter::~CuckooFilter() {
 }
 
 void CuckooFilter::printFilter() {
+    if (capacity == 0)
+        return;
+
     size_t loopCnt = bucketCnt > BUCKET_SIZE ? BUCKET_SIZE : bucketCnt;
     for (size_t i = 0; i < loopCnt; i++) {
         for (size_t j = 0; j < BUCKET_SIZE; j++) {
@@ -38,7 +41,19 @@ void CuckooFilter::printFilter() {
     std::cout << std::endl;
 }
 
+double CuckooFilter::getLoadFactor() const {
+    if (capacity > 0)
+        return static_cast<double>(size)/static_cast<double>(capacity);
+    else
+        return 0;
+}
+
 bool CuckooFilter::insert(const std::string& item) {
+    // This is ok because C++ evaluates one at a time
+    // If capacity is 0, getLoadFactor won't be called
+    if (capacity == 0 || getLoadFactor() == 1)
+        return false;
+
     uint16_t fingerprint = getFingerprint(item);
     size_t firstBucket = getBucketIndex(item);
     size_t secondBucket = getAltBucketIndex(firstBucket, fingerprint);
@@ -56,6 +71,9 @@ bool CuckooFilter::insert(const std::string& item) {
 }
 
 bool CuckooFilter::contains(const std::string& item) const {
+    if (capacity == 0)
+        return false;
+
     uint16_t fingerprint = getFingerprint(item);
     size_t firstBucket = getBucketIndex(item);
     size_t secondBucket = getAltBucketIndex(firstBucket, fingerprint);
@@ -71,6 +89,9 @@ bool CuckooFilter::contains(const std::string& item) const {
 }
 
 bool CuckooFilter::remove(const std::string& item) {
+    if (capacity == 0)
+        return false;
+
     uint16_t fingerprint = getFingerprint(item);
     size_t firstBucket = getBucketIndex(item);
     size_t secondBucket = getAltBucketIndex(firstBucket, fingerprint);
@@ -96,6 +117,8 @@ bool CuckooFilter::remove(const std::string& item) {
 void CuckooFilter::clearFilter() {
     table.clear();
     table.shrink_to_fit();
+    size = 0;
+    capacity = 0;
 }
 
 uint16_t CuckooFilter::getFingerprint(const std::string& item) const {

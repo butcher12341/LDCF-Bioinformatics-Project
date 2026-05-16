@@ -42,11 +42,11 @@ public:
     // Prints the first few buckets of the filter
     void printFilter();
     // Get the current number of fingerprints stored in the filter
-    size_t getSize() { return size; }
+    size_t getSize() const { return size; }
     // Get the max number of fingerprints that can be stored in the filter
-    size_t getCapacity() { return capacity; }
+    size_t getCapacity() const { return capacity; }
     // Get the current load factor of the filter
-    double getLoadFactor() { return static_cast<double>(size)/static_cast<double>(capacity); }
+    double getLoadFactor() const;
     // Insert the item into the cuckoo filter, returns false if not possible
     bool insert(const std::string& item);
     // Returns true if item exist in filter with high probability, returns false if it doesn't
