@@ -24,7 +24,7 @@ CuckooFilter::~CuckooFilter() {
     table.shrink_to_fit();
 }
 
-void CuckooFilter::printFilter() {
+void CuckooFilter::printFilter() const {
     if (capacity == 0)
         return;
 
@@ -38,6 +38,8 @@ void CuckooFilter::printFilter() {
         }
         std::cout << std::endl;
     }
+    if (loopCnt < bucketCnt)
+        std::cout << "...." << std::endl;
     std::cout << std::endl;
 }
 
@@ -56,14 +58,22 @@ bool CuckooFilter::insert(const std::string& item) {
 
     uint16_t fingerprint = getFingerprint(item);
     size_t firstBucket = getBucketIndex(item);
-    size_t secondBucket = getAltBucketIndex(firstBucket, fingerprint);
 
-    if (table[firstBucket].bucket.size() < BUCKET_SIZE)
-        table[firstBucket].bucket.push_back(fingerprint);
+    return insert(fingerprint, firstBucket);
+}
+
+bool CuckooFilter::insert(const uint16_t fingerprint, const size_t bucket) {
+    if (capacity == 0 || getLoadFactor() == 1)
+        return false;
+
+    size_t secondBucket = getAltBucketIndex(bucket, fingerprint);
+
+    if (table[bucket].bucket.size() < BUCKET_SIZE)
+        table[bucket].bucket.push_back(fingerprint);
     else if (table[secondBucket].bucket.size() < BUCKET_SIZE)
         table[secondBucket].bucket.push_back(fingerprint);
-    else if (changeBucket(firstBucket, table[firstBucket].bucket[0], 1))
-        table[firstBucket].bucket.push_back(fingerprint);
+    else if (changeBucket(bucket, table[bucket].bucket[0], 1))
+        table[bucket].bucket.push_back(fingerprint);
     else
         return false;
     size++;

@@ -102,7 +102,7 @@ bool LDCF::SplitNode(LDCFNode* node, const std::string& new_item) {
   for (size_t b = 0; b < bucket_cnt && success; b++) {
     for (uint16_t fp : table[b].bucket) {
       LDCFNode* target = (GetPrefixBit(fp, split_bit) == 0) ? left_child : right_child;
-      if (!target->cf->insertFingerprint(fp, b)) {
+      if (!target->cf->insert(fp, b)) {
         success = false;
         break;
       }

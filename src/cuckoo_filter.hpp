@@ -40,15 +40,21 @@ public:
     // Destroy the cuckoo filter object
     ~CuckooFilter();
     // Prints the first few buckets of the filter
-    void printFilter();
+    void printFilter() const;
     // Get the current number of fingerprints stored in the filter
     size_t getSize() const { return size; }
     // Get the max number of fingerprints that can be stored in the filter
     size_t getCapacity() const { return capacity; }
     // Get the current load factor of the filter
     double getLoadFactor() const;
+    // Get the whole hash table
+    std::vector<Bucket> getTable() const { return table; }
+    // Get the number of buckets in the hash table
+    size_t getBucketCount() const { return bucketCnt; }
     // Insert the item into the cuckoo filter, returns false if not possible
     bool insert(const std::string& item);
+    // Insert the fingerprint into the cuckoo filter, needs one of the buckets as well
+    bool insert(const uint16_t fingerprint, const size_t bucket);
     // Returns true if item exist in filter with high probability, returns false if it doesn't
     bool contains(const std::string& item) const;
     // Remove item from the filter, returns false if item isn't in the filter
