@@ -1,40 +1,66 @@
 // Author: Andrija Pervan
-// LDCF implementation, see ldcf.hpp
+// LDCF implementation using binary tree of CF blocks with fingerprint-prefix splitting.
 
 #include "ldcf.hpp"
+#include <openssl/md5.h>
 
-LDCF::LDCF(size_t base_capacity) : base_capacity_(base_capacity) {
-  levels_.push_back(new CuckooFilter(LevelCapacity(0)));
+// --- LDCFNode ---
+
+LDCFNode::LDCFNode(size_t capacity, int depth, uint16_t prefix)
+    : cf(new CuckooFilter(capacity)), depth(depth), prefix(prefix),
+      left(nullptr), right(nullptr) {}
+
+LDCFNode::~LDCFNode() {
+  delete cf;
+  delete left;
+  delete right;
 }
 
-LDCF::~LDCF() {
-  for (CuckooFilter* cf : levels_) delete cf;
+// --- LDCF ---
+
+LDCF::LDCF(size_t block_capacity)
+    : block_capacity_(block_capacity), size_(0),
+      root_(new LDCFNode(block_capacity, 0, 0)) {}
+
+LDCF::~LDCF() { delete root_; }
+
+uint16_t LDCF::GetFingerprint(const std::string& item) const {
+  // must match CuckooFilter::getFingerprint exactly
+  unsigned char md5[MD5_DIGEST_LENGTH];
+  MD5(reinterpret_cast<const unsigned char*>(item.c_str()), item.size(), md5);
+  uint16_t result = 0;
+  for (size_t i = 0; i < FINGERPRINT_LEN; i++)
+    result |= (static_cast<uint16_t>(md5[i]) << (i * 8));
+  return result;
 }
 
-size_t LDCF::LevelCapacity(size_t index) const {
-  return base_capacity_ * (static_cast<size_t>(1) << index);
+int LDCF::GetPrefixBit(uint16_t fingerprint, int bit_pos) {
+  return (fingerprint >> bit_pos) & 1;
+}
+
+LDCFNode* LDCF::FindLeaf(uint16_t fingerprint) const {
+  LDCFNode* node = root_;
+  while (!node->IsLeaf()) {
+    if (GetPrefixBit(fingerprint, node->depth) == 0)
+      node = node->left;
+    else
+      node = node->right;
+  }
+  return node;
 }
 
 bool LDCF::Insert(const std::string& item) {
-  for (size_t i = 0; i < levels_.size(); i++) {
-    if (levels_[i]->insert(item)) {
-      items_.push_back(item);
-      return true;
-    }
-    // level full, try merging into next level then insert into freed space
-    if (MergeUp(i)) {
-      if (levels_[i]->insert(item)) {
-        items_.push_back(item);
-        return true;
-      }
-    }
+  uint16_t fp = GetFingerprint(item);
+  LDCFNode* leaf = FindLeaf(fp);
+
+  if (leaf->cf->insert(item)) {
+    size_++;
+    return true;
   }
 
-  // all levels full, add a new one
-  size_t new_index = levels_.size();
-  levels_.push_back(new CuckooFilter(LevelCapacity(new_index)));
-  if (levels_[new_index]->insert(item)) {
-    items_.push_back(item);
+  // CF block is full, split and retry
+  if (SplitNode(leaf, item)) {
+    size_++;
     return true;
   }
 
@@ -42,62 +68,89 @@ bool LDCF::Insert(const std::string& item) {
 }
 
 bool LDCF::Contains(const std::string& item) const {
-  for (const CuckooFilter* cf : levels_)
-    if (cf->contains(item)) return true;
-  return false;
+  uint16_t fp = GetFingerprint(item);
+  LDCFNode* leaf = FindLeaf(fp);
+  return leaf->cf->contains(item);
 }
 
 bool LDCF::Remove(const std::string& item) {
-  for (CuckooFilter* cf : levels_) {
-    if (cf->remove(item)) {
-      for (auto it = items_.begin(); it != items_.end(); ++it) {
-        if (*it == item) { items_.erase(it); break; }
-      }
-      return true;
-    }
+  uint16_t fp = GetFingerprint(item);
+  LDCFNode* leaf = FindLeaf(fp);
+  if (leaf->cf->remove(item)) {
+    size_--;
+    return true;
   }
   return false;
 }
 
-bool LDCF::MergeUp(size_t index) {
-  if (index + 1 >= levels_.size())
-    levels_.push_back(new CuckooFilter(LevelCapacity(index + 1)));
+bool LDCF::SplitNode(LDCFNode* node, const std::string& new_item) {
+  if (node->depth >= 15) return false;  // 16-bit fingerprint, max 15 splits
 
-  CuckooFilter* src = levels_[index];
-  CuckooFilter* dst = levels_[index + 1];
+  int split_bit = node->depth;
+  uint16_t left_prefix = node->prefix;
+  uint16_t right_prefix = node->prefix | (1 << split_bit);
 
-  // collect items that are in src (contains() may have false positives,
-  // but that just means a few extra re-inserts, not incorrect behaviour)
-  std::vector<std::string> to_move;
-  for (const std::string& item : items_)
-    if (src->contains(item)) to_move.push_back(item);
+  LDCFNode* left_child = new LDCFNode(block_capacity_, split_bit + 1, left_prefix);
+  LDCFNode* right_child = new LDCFNode(block_capacity_, split_bit + 1, right_prefix);
 
-  for (const std::string& item : to_move) {
-    if (!dst->insert(item)) {
-      // dst also full, roll back and give up
-      for (const std::string& ins : to_move) {
-        if (ins == item) break;
-        dst->remove(ins);
+  // redistribute existing fingerprints from old CF into children
+  // iterate all buckets and move each fingerprint to the correct child
+  const auto& table = node->cf->getTable();
+  size_t bucket_cnt = node->cf->getBucketCount();
+  bool success = true;
+
+  for (size_t b = 0; b < bucket_cnt && success; b++) {
+    for (uint16_t fp : table[b].bucket) {
+      LDCFNode* target = (GetPrefixBit(fp, split_bit) == 0) ? left_child : right_child;
+      if (!target->cf->insertFingerprint(fp, b)) {
+        success = false;
+        break;
       }
-      return false;
     }
   }
 
-  // merge done, reset src
-  delete levels_[index];
-  levels_[index] = new CuckooFilter(LevelCapacity(index));
+  if (!success) {
+    // split failed (shouldn't happen normally since we're halving the load)
+    delete left_child;
+    delete right_child;
+    return false;
+  }
+
+  // insert the new item into the correct child
+  uint16_t new_fp = GetFingerprint(new_item);
+  LDCFNode* target = (GetPrefixBit(new_fp, split_bit) == 0) ? left_child : right_child;
+  if (!target->cf->insert(new_item)) {
+    delete left_child;
+    delete right_child;
+    return false;
+  }
+
+  // split succeeded, replace node's CF with children
+  delete node->cf;
+  node->cf = nullptr;
+  node->left = left_child;
+  node->right = right_child;
+
   return true;
 }
 
-size_t LDCF::Size() const { return items_.size(); }
+size_t LDCF::NodeCount() const { return CountNodes(root_); }
 
-size_t LDCF::Capacity() const {
-  size_t total = 0;
-  for (const CuckooFilter* cf : levels_) total += cf->getCapacity();
-  return total;
+size_t LDCF::CountNodes(const LDCFNode* node) {
+  if (!node) return 0;
+  if (node->IsLeaf()) return 1;
+  return CountNodes(node->left) + CountNodes(node->right);
+}
+
+size_t LDCF::Capacity() const { return SumCapacity(root_); }
+
+size_t LDCF::SumCapacity(const LDCFNode* node) {
+  if (!node) return 0;
+  if (node->IsLeaf()) return node->cf->getCapacity();
+  return SumCapacity(node->left) + SumCapacity(node->right);
 }
 
 double LDCF::LoadFactor() const {
   size_t cap = Capacity();
-  return cap == 0 ? 0.0 : static_cast<double>(Size()) / static_cast<double>(cap);
+  return cap == 0 ? 0.0 : static_cast<double>(size_) / static_cast<double>(cap);
 }
