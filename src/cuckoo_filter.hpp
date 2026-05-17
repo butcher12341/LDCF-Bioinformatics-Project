@@ -55,6 +55,11 @@ public:
     bool remove(const std::string& item);
     // Clear the filter and release the memory, ie. for spliting the filter
     void clearFilter();
+    // Direct access to buckets, needed by LDCF for splitting
+    const std::vector<Bucket>& getTable() const { return table; }
+    size_t getBucketCount() const { return bucketCnt; }
+    // Insert a raw fingerprint directly into the filter (used during LDCF split)
+    bool insertFingerprint(uint16_t fingerprint, size_t bucket_index);
 };
 
 #endif // CUCKOO_FILTER_HPP

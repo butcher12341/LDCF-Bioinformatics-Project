@@ -179,3 +179,29 @@ bool CuckooFilter::changeBucket(const size_t& bucketIndex, const uint16_t& finge
         return false;
     return true;
 }
+
+// Insert a raw fingerprint at a given bucket index (used by LDCF during split)
+bool CuckooFilter::insertFingerprint(uint16_t fingerprint, size_t bucket_index) {
+    if (capacity == 0 || getLoadFactor() == 1)
+        return false;
+
+    size_t b1 = bucket_index & (bucketCnt - 1);
+    size_t b2 = getAltBucketIndex(b1, fingerprint);
+
+    if (table[b1].bucket.size() < BUCKET_SIZE) {
+        table[b1].bucket.push_back(fingerprint);
+        size++;
+        return true;
+    }
+    if (table[b2].bucket.size() < BUCKET_SIZE) {
+        table[b2].bucket.push_back(fingerprint);
+        size++;
+        return true;
+    }
+    if (changeBucket(b1, table[b1].bucket[0], 1)) {
+        table[b1].bucket.push_back(fingerprint);
+        size++;
+        return true;
+    }
+    return false;
+}
