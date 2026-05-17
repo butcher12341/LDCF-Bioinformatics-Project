@@ -56,13 +56,13 @@ bool CuckooFilter::insert(const std::string& item) {
     if (capacity == 0 || getLoadFactor() == 1)
         return false;
 
-    uint16_t fingerprint = getFingerprint(item);
+    uint32_t fingerprint = getFingerprint(item);
     size_t firstBucket = getBucketIndex(item);
 
     return insert(fingerprint, firstBucket);
 }
 
-bool CuckooFilter::insert(const uint16_t fingerprint, const size_t bucket) {
+bool CuckooFilter::insert(const uint32_t fingerprint, const size_t bucket) {
     if (capacity == 0 || getLoadFactor() == 1)
         return false;
 
@@ -84,7 +84,7 @@ bool CuckooFilter::contains(const std::string& item) const {
     if (capacity == 0)
         return false;
 
-    uint16_t fingerprint = getFingerprint(item);
+    uint32_t fingerprint = getFingerprint(item);
     size_t firstBucket = getBucketIndex(item);
     size_t secondBucket = getAltBucketIndex(firstBucket, fingerprint);
 
@@ -102,7 +102,7 @@ bool CuckooFilter::remove(const std::string& item) {
     if (capacity == 0)
         return false;
 
-    uint16_t fingerprint = getFingerprint(item);
+    uint32_t fingerprint = getFingerprint(item);
     size_t firstBucket = getBucketIndex(item);
     size_t secondBucket = getAltBucketIndex(firstBucket, fingerprint);
 
@@ -131,13 +131,13 @@ void CuckooFilter::clearFilter() {
     capacity = 0;
 }
 
-uint16_t CuckooFilter::getFingerprint(const std::string& item) const {
+uint32_t CuckooFilter::getFingerprint(const std::string& item) {
     unsigned char md5[MD5_DIGEST_LENGTH];
     MD5(reinterpret_cast<const unsigned char*>(item.c_str()), item.size(), md5);
 
-    uint16_t result = 0;
+    uint32_t result = 0;
     for (size_t i = 0; i < FINGERPRINT_LEN; i++)
-        result |= (static_cast<uint16_t>(md5[i]) << (i * sizeof(uint64_t)));
+        result |= (static_cast<uint32_t>(md5[i]) << (i * sizeof(uint64_t)));
 
     return result;
 }
@@ -156,7 +156,7 @@ size_t CuckooFilter::getBucketIndex(const std::string& item) const {
     return result;
 }
 
-size_t CuckooFilter::getAltBucketIndex(const size_t& firstBucketIndex, const uint16_t& fingerprint) const {
+size_t CuckooFilter::getAltBucketIndex(const size_t& firstBucketIndex, const uint32_t& fingerprint) const {
     unsigned char md5[MD5_DIGEST_LENGTH];
     MD5(reinterpret_cast<const unsigned char*>(&fingerprint), sizeof(fingerprint), md5);
 
@@ -171,7 +171,7 @@ size_t CuckooFilter::getAltBucketIndex(const size_t& firstBucketIndex, const uin
     return result;
 }
 
-bool CuckooFilter::changeBucket(const size_t& bucketIndex, const uint16_t& fingerprint, size_t depth) {
+bool CuckooFilter::changeBucket(const size_t& bucketIndex, const uint32_t& fingerprint, size_t depth) {
     size_t altBucket = getAltBucketIndex(bucketIndex, fingerprint);
 
     if (depth == MAX_DEPTH)

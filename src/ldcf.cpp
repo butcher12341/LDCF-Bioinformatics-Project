@@ -6,7 +6,7 @@
 
 // --- LDCFNode ---
 
-LDCFNode::LDCFNode(size_t capacity, int depth, uint16_t prefix)
+LDCFNode::LDCFNode(size_t capacity, int depth, uint32_t prefix)
     : cf(new CuckooFilter(capacity)), depth(depth), prefix(prefix),
       left(nullptr), right(nullptr) {}
 
@@ -24,21 +24,11 @@ LDCF::LDCF(size_t block_capacity)
 
 LDCF::~LDCF() { delete root_; }
 
-uint16_t LDCF::GetFingerprint(const std::string& item) const {
-  // must match CuckooFilter::getFingerprint exactly
-  unsigned char md5[MD5_DIGEST_LENGTH];
-  MD5(reinterpret_cast<const unsigned char*>(item.c_str()), item.size(), md5);
-  uint16_t result = 0;
-  for (size_t i = 0; i < FINGERPRINT_LEN; i++)
-    result |= (static_cast<uint16_t>(md5[i]) << (i * 8));
-  return result;
-}
-
-int LDCF::GetPrefixBit(uint16_t fingerprint, int bit_pos) {
+int LDCF::GetPrefixBit(uint32_t fingerprint, int bit_pos) {
   return (fingerprint >> bit_pos) & 1;
 }
 
-LDCFNode* LDCF::FindLeaf(uint16_t fingerprint) const {
+LDCFNode* LDCF::FindLeaf(uint32_t fingerprint) const {
   LDCFNode* node = root_;
   while (!node->IsLeaf()) {
     if (GetPrefixBit(fingerprint, node->depth) == 0)
@@ -50,7 +40,7 @@ LDCFNode* LDCF::FindLeaf(uint16_t fingerprint) const {
 }
 
 bool LDCF::Insert(const std::string& item) {
-  uint16_t fp = GetFingerprint(item);
+  uint32_t fp = CuckooFilter::getFingerprint(item);
   LDCFNode* leaf = FindLeaf(fp);
 
   if (leaf->cf->insert(item)) {
@@ -68,13 +58,13 @@ bool LDCF::Insert(const std::string& item) {
 }
 
 bool LDCF::Contains(const std::string& item) const {
-  uint16_t fp = GetFingerprint(item);
+  uint32_t fp = CuckooFilter::getFingerprint(item);
   LDCFNode* leaf = FindLeaf(fp);
   return leaf->cf->contains(item);
 }
 
 bool LDCF::Remove(const std::string& item) {
-  uint16_t fp = GetFingerprint(item);
+  uint32_t fp = CuckooFilter::getFingerprint(item);
   LDCFNode* leaf = FindLeaf(fp);
   if (leaf->cf->remove(item)) {
     size_--;
@@ -87,8 +77,8 @@ bool LDCF::SplitNode(LDCFNode* node, const std::string& new_item) {
   if (node->depth >= 15) return false;  // 16-bit fingerprint, max 15 splits
 
   int split_bit = node->depth;
-  uint16_t left_prefix = node->prefix;
-  uint16_t right_prefix = node->prefix | (1 << split_bit);
+  uint32_t left_prefix = node->prefix;
+  uint32_t right_prefix = node->prefix | (1 << split_bit);
 
   LDCFNode* left_child = new LDCFNode(block_capacity_, split_bit + 1, left_prefix);
   LDCFNode* right_child = new LDCFNode(block_capacity_, split_bit + 1, right_prefix);
@@ -100,7 +90,7 @@ bool LDCF::SplitNode(LDCFNode* node, const std::string& new_item) {
   bool success = true;
 
   for (size_t b = 0; b < bucket_cnt && success; b++) {
-    for (uint16_t fp : table[b].bucket) {
+    for (uint32_t fp : table[b].bucket) {
       LDCFNode* target = (GetPrefixBit(fp, split_bit) == 0) ? left_child : right_child;
       if (!target->cf->insert(fp, b)) {
         success = false;
@@ -117,7 +107,7 @@ bool LDCF::SplitNode(LDCFNode* node, const std::string& new_item) {
   }
 
   // insert the new item into the correct child
-  uint16_t new_fp = GetFingerprint(new_item);
+  uint32_t new_fp = CuckooFilter::getFingerprint(new_item);
   LDCFNode* target = (GetPrefixBit(new_fp, split_bit) == 0) ? left_child : right_child;
   if (!target->cf->insert(new_item)) {
     delete left_child;

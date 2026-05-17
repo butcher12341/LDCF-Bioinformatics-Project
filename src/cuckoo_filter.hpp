@@ -8,12 +8,12 @@
 #include <openssl/md5.h>
 
 #define BUCKET_SIZE 4
-#define FINGERPRINT_LEN 2   // bytes
+#define FINGERPRINT_LEN 4   // bytes
 #define HASH_LEN 8          // bytes
 #define MAX_DEPTH 500
 
 typedef struct{
-	std::vector<uint16_t> bucket;
+	std::vector<uint32_t> bucket;
 } Bucket;
 
 /*
@@ -26,14 +26,12 @@ private:
     size_t bucketCnt;
     std::vector<Bucket> table;
     
-    // Get the fingerprint of the item using MD5 hash
-    uint16_t getFingerprint(const std::string& item) const;
     // Get the first bucket index of the item using MD5 hash
     size_t getBucketIndex(const std::string& item) const;
     // Get the second bucket index of the item using the first bucket index and the fingerprint
-    size_t getAltBucketIndex(const size_t& firstBucketIndex, const uint16_t& fingerprint) const;
+    size_t getAltBucketIndex(const size_t& firstBucketIndex, const uint32_t& fingerprint) const;
     // Move fingerprint from bucket index to alternative bucket, returns false if not possible
-    bool changeBucket(const size_t& bucketIndex, const uint16_t& fingerprint, size_t depth);
+    bool changeBucket(const size_t& bucketIndex, const uint32_t& fingerprint, size_t depth);
 public:
     // Create the cuckoo filter object with the given capacity
     CuckooFilter(size_t capacity);
@@ -51,10 +49,12 @@ public:
     std::vector<Bucket> getTable() const { return table; }
     // Get the number of buckets in the hash table
     size_t getBucketCount() const { return bucketCnt; }
+    // Get the fingerprint of the item using MD5 hash
+    static uint32_t getFingerprint(const std::string& item);
     // Insert the item into the cuckoo filter, returns false if not possible
     bool insert(const std::string& item);
     // Insert the fingerprint into the cuckoo filter, needs one of the buckets as well
-    bool insert(const uint16_t fingerprint, const size_t bucket);
+    bool insert(const uint32_t fingerprint, const size_t bucket);
     // Returns true if item exist in filter with high probability, returns false if it doesn't
     bool contains(const std::string& item) const;
     // Remove item from the filter, returns false if item isn't in the filter

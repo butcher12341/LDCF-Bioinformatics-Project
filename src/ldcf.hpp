@@ -20,11 +20,11 @@
 struct LDCFNode {
   CuckooFilter* cf;
   int depth;         // depth in tree = number of prefix bits used
-  uint16_t prefix;   // fingerprint prefix that this node covers
+  uint32_t prefix;   // fingerprint prefix that this node covers
   LDCFNode* left;    // child for prefix bit 0
   LDCFNode* right;   // child for prefix bit 1
 
-  LDCFNode(size_t capacity, int depth, uint16_t prefix);
+  LDCFNode(size_t capacity, int depth, uint32_t prefix);
   ~LDCFNode();
   bool IsLeaf() const { return left == nullptr && right == nullptr; }
 };
@@ -48,14 +48,11 @@ class LDCF {
   size_t size_;
   LDCFNode* root_;
 
-  // get fingerprint for an item (same hash as CuckooFilter uses)
-  uint16_t GetFingerprint(const std::string& item) const;
-
   // extract the bit at position 'bit_pos' from fingerprint
-  static int GetPrefixBit(uint16_t fingerprint, int bit_pos);
+  static int GetPrefixBit(uint32_t fingerprint, int bit_pos);
 
   // find the leaf node responsible for a given fingerprint
-  LDCFNode* FindLeaf(uint16_t fingerprint) const;
+  LDCFNode* FindLeaf(uint32_t fingerprint) const;
 
   // split a full leaf node into two children
   bool SplitNode(LDCFNode* node, const std::string& item);
