@@ -47,6 +47,35 @@ BenchmarkResult BenchmarkLDCF(const std::vector<std::string>& kmers,
   return result;
 }
 
+BenchmarkResult BenchmarkCF(const std::vector<std::string>& kmers,
+                             const std::vector<std::string>& negative_kmers,
+                             size_t capacity) {
+  BenchmarkResult result{};
+  result.num_items = kmers.size();
+  CuckooFilter filter(capacity);
+
+  auto t0 = std::chrono::high_resolution_clock::now();
+  for (const auto& kmer : kmers) filter.insert(kmer);
+  auto t1 = std::chrono::high_resolution_clock::now();
+  result.insert_time_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+
+  result.memory_bytes = GetMemoryUsageBytes();
+
+  auto t2 = std::chrono::high_resolution_clock::now();
+  for (const auto& kmer : kmers) filter.contains(kmer);
+  auto t3 = std::chrono::high_resolution_clock::now();
+  result.lookup_time_ms = std::chrono::duration<double, std::milli>(t3 - t2).count();
+
+  if (!negative_kmers.empty()) {
+    size_t fp = 0;
+    for (const auto& kmer : negative_kmers)
+      if (filter.contains(kmer)) fp++;
+    result.false_positive_rate = static_cast<double>(fp) / negative_kmers.size();
+  }
+
+  return result;
+}
+
 void WriteResultCSV(const std::string& filepath, const std::string& label,
                     int k, const BenchmarkResult& result) {
   std::ofstream file(filepath, std::ios::app);
