@@ -17,3 +17,17 @@ size_t GetMemoryUsageBytes() {
 #endif
   return 0;
 }
+
+void WriteResultCSV(const std::string& filepath, const std::string& label,
+                    int k, const BenchmarkResult& result) {
+  std::ofstream file(filepath, std::ios::app);
+  if (!file.is_open())
+    throw std::runtime_error("Cannot open output file: " + filepath);
+
+  if (file.tellp() == 0)
+    file << "filter,k,num_items,insert_ms,lookup_ms,fpr,memory_bytes\n";
+
+  file << label << "," << k << "," << result.num_items << ","
+       << result.insert_time_ms << "," << result.lookup_time_ms << ","
+       << result.false_positive_rate << "," << result.memory_bytes << "\n";
+}
