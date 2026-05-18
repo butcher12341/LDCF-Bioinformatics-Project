@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <fstream>
+#include <map>
 #include "ldcf.hpp"
 #include "genome_loader.hpp"
 #include "benchmark.hpp"
@@ -17,6 +19,7 @@ void printUsage(const char* prog) {
             << "  --k <values>       Comma-separated k values (default: 10,20,50,100,200)\n"
             << "  --capacity <n>     CF block capacity (default: 1024)\n"
             << "  --output <path>    Output CSV file (default: results.csv)\n"
+            << "  --config <path>    Load config data from a file instead of a CLI (example: data/config.txt)"
             << "  --help             Show this message\n";
 }
 
@@ -33,7 +36,31 @@ std::vector<int> parseKValues(const std::string& str) {
   return vals;
 }
 
+std::map<std::string, std::string> LoadConfig(const std::string& path) {
+  std::map<std::string, std::string> config;
+  std::ifstream in(path);
+  if (!in)
+    return config;
+
+  std::string line;
+  while (std::getline(in, line)) {
+    if (line.empty() || line[0] == '#')
+      continue;
+
+    size_t eq = line.find('=');
+    if (eq == std::string::npos)
+      continue;
+
+    std::string key = line.substr(0, eq);
+    std::string value = line.substr(eq + 1);
+    config[key] = value;
+  }
+
+  return config;
+}
+
 int main(int argc, char* argv[]) {
+  std::string config_path;
   std::string fasta_path;
   size_t random_len = 0;
   std::vector<int> k_values = {10, 20, 50, 100, 200};
@@ -47,8 +74,23 @@ int main(int argc, char* argv[]) {
     else if (arg == "--k" && i + 1 < argc) k_values = parseKValues(argv[++i]);
     else if (arg == "--capacity" && i + 1 < argc) capacity = std::stoull(argv[++i]);
     else if (arg == "--output" && i + 1 < argc) output_path = argv[++i];
+    else if (arg == "--config" && i + 1 < argc) config_path = argv[++i];
     else if (arg == "--help") { printUsage(argv[0]); return 0; }
     else { std::cerr << "Unknown option: " << arg << "\n"; printUsage(argv[0]); return 1; }
+  }
+
+  if (!config_path.empty()) {
+    std::map<std::string, std::string> cfg = LoadConfig(config_path);
+    if (cfg.count("fasta"))
+      fasta_path = cfg["fasta"];
+    if (cfg.count("random"))
+      random_len = std::stoull(cfg["random"]);
+    if (cfg.count("k"))
+      k_values = parseKValues(cfg["k"]);
+    if (cfg.count("capacity"))
+      capacity = std::stoull(cfg["capacity"]);
+    if (cfg.count("output"))
+      output_path = cfg["output"];
   }
 
   if (fasta_path.empty() && random_len == 0) {

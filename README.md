@@ -15,7 +15,7 @@ Course page: https://www.fer.unizg.hr/predmet/bio1
 
 ## Requirements
 
-- Linux (tested on Ubuntu 20.04)
+- Linux (tested on Ubuntu 20.04 and Fedora 44)
 - CMake >= 3.16
 - g++ with C++17 support
 - OpenSSL development library
@@ -47,6 +47,7 @@ cmake --build build
 | `--k <values>` | Comma-separated k-mer sizes (default: 10,20,50,100,200) |
 | `--capacity <n>` | CF block capacity (default: 1024) |
 | `--output <path>` | Output CSV file path (default: results.csv) |
+| `--config <path>` | Load config data from a file instead of a CLI (example: [data/config.txt](data/config.txt)) |
 | `--help` | Show help message |
 
 ### Examples

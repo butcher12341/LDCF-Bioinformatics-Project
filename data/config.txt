@@ -1,0 +1,5 @@
+random=1000000
+#fasta=/path/to/ecoli.fasta
+k=100,200
+capacity=1024
+output=results.csv
