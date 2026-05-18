@@ -2,4 +2,3 @@ build/
 .vscode/
 *.o
 *.csv
-scale_test.sh
