@@ -74,7 +74,7 @@ bool LDCF::Remove(const std::string& item) {
 }
 
 bool LDCF::SplitNode(LDCFNode* node, const std::string& new_item) {
-  if (node->depth >= 15) return false;  // 16-bit fingerprint, max 15 splits
+  if (node->depth >= (FINGERPRINT_LEN * sizeof(uint64_t) - 1)) return false;  // 32-bit fingerprint, max 31 splits
 
   int split_bit = node->depth;
   uint32_t left_prefix = node->prefix;

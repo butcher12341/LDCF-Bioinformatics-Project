@@ -67,13 +67,16 @@ bool CuckooFilter::insert(const uint32_t fingerprint, const size_t bucket) {
         return false;
 
     size_t secondBucket = getAltBucketIndex(bucket, fingerprint);
+    int randomNum = rand() % BUCKET_SIZE;
 
     if (table[bucket].bucket.size() < BUCKET_SIZE)
         table[bucket].bucket.push_back(fingerprint);
     else if (table[secondBucket].bucket.size() < BUCKET_SIZE)
         table[secondBucket].bucket.push_back(fingerprint);
-    else if (changeBucket(bucket, table[bucket].bucket[0], 1))
+    else if (changeBucket(bucket, table[bucket].bucket[randomNum], 1, randomNum))
         table[bucket].bucket.push_back(fingerprint);
+    else if (changeBucket(secondBucket, table[secondBucket].bucket[randomNum], 1, randomNum))
+        table[secondBucket].bucket.push_back(fingerprint);
     else
         return false;
     size++;
@@ -164,6 +167,7 @@ size_t CuckooFilter::getAltBucketIndex(const size_t& firstBucketIndex, const uin
     for (size_t i = 0; i < HASH_LEN; i++)
         hash |= (static_cast<size_t>(md5[i]) << (i * sizeof(uint64_t)));
 
+    hash |= 1; // So that the 2 buckets aren't same
     size_t result = firstBucketIndex ^ hash; // XOR
     // Use bucket count as bitmask for the index
     result &= (bucketCnt - 1);
@@ -171,21 +175,28 @@ size_t CuckooFilter::getAltBucketIndex(const size_t& firstBucketIndex, const uin
     return result;
 }
 
-bool CuckooFilter::changeBucket(const size_t& bucketIndex, const uint32_t& fingerprint, size_t depth) {
-    size_t altBucket = getAltBucketIndex(bucketIndex, fingerprint);
-
+bool CuckooFilter::changeBucket(const size_t& bucketIndex, const uint32_t fingerprint, size_t depth, size_t pos) {
     if (depth == MAX_DEPTH)
         return false;
 
+    size_t altBucket = getAltBucketIndex(bucketIndex, fingerprint);
+
     if (table[altBucket].bucket.size() < BUCKET_SIZE) {
         table[altBucket].bucket.push_back(fingerprint);
-        table[bucketIndex].bucket.erase(table[bucketIndex].bucket.begin());
+        table[bucketIndex].bucket.erase(table[bucketIndex].bucket.begin() + pos);
+        return true;
     }
-    else if (changeBucket(altBucket, table[altBucket].bucket[0], depth + 1)) {
+
+    size_t randomNum = rand() % BUCKET_SIZE;
+    if (changeBucket(altBucket, table[altBucket].bucket[randomNum], depth + 1, randomNum)) {
         table[altBucket].bucket.push_back(fingerprint);
-        table[bucketIndex].bucket.erase(table[bucketIndex].bucket.begin());
+        for (size_t i = 0; i < table[bucketIndex].bucket.size(); i++) {
+            if (table[bucketIndex].bucket[i] == fingerprint) {
+                table[bucketIndex].bucket.erase(table[bucketIndex].bucket.begin() + i);
+                return true;
+            }
+        }
     }
-    else
-        return false;
-    return true;
+
+    return false;
 }

@@ -31,7 +31,7 @@ private:
     // Get the second bucket index of the item using the first bucket index and the fingerprint
     size_t getAltBucketIndex(const size_t& firstBucketIndex, const uint32_t& fingerprint) const;
     // Move fingerprint from bucket index to alternative bucket, returns false if not possible
-    bool changeBucket(const size_t& bucketIndex, const uint32_t& fingerprint, size_t depth);
+    bool changeBucket(const size_t& bucketIndex, const uint32_t fingerprint, size_t depth, size_t pos);
 public:
     // Create the cuckoo filter object with the given capacity
     CuckooFilter(size_t capacity);
