@@ -30,6 +30,7 @@ sudo apt-get install cmake g++ libssl-dev
 ```bash
 cmake -B build -S .
 cmake --build build
+mkdir -p results
 ```
 
 ## Usage
