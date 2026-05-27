@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <map>
+#include <unordered_set>
 #include "ldcf.hpp"
 #include "genome_loader.hpp"
 #include "benchmark.hpp"
@@ -123,7 +124,17 @@ int main(int argc, char* argv[]) {
     }
 
     auto kmers = GenomeLoader::GenerateKmers(sequence, k);
-    auto neg_kmers = GenomeLoader::GenerateKmers(neg_sequence, k);
+    auto neg_kmers_raw = GenomeLoader::GenerateKmers(neg_sequence, k);
+
+    // filter out negative k-mers that exist in the positive set
+    std::unordered_set<std::string> pos_set(kmers.begin(), kmers.end());
+    std::vector<std::string> neg_kmers;
+    neg_kmers.reserve(neg_kmers_raw.size());
+    for (auto& nk : neg_kmers_raw)
+      if (pos_set.find(nk) == pos_set.end()) neg_kmers.push_back(std::move(nk));
+    neg_kmers_raw.clear();
+    pos_set.clear();
+
     std::cout << "k=" << k << " | kmers=" << kmers.size()
               << " | neg_kmers=" << neg_kmers.size() << "\n";
 
